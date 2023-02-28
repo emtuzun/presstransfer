@@ -72,6 +72,7 @@ cur = con.cursor()
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
 server.listen(10)
+print("[Listening] Server is listening...")
 
 clients = []
 
@@ -103,7 +104,6 @@ def handle(client: socket.socket):
 
 while True:
     client, address = server.accept()
-    client.recv()
     print(f'Connected with {str(address)}')
     clients.append(client)
     thread = threading.Thread(target=handle, args=(client,))
