@@ -8,12 +8,10 @@ import threading
 HEADER = 8
 HOST = "0.0.0.0"
 PORT = 12345
-FORMAT = "utf-8"
+FORMAT = "ascii"
 ADDR = (HOST, PORT)
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
-connected = False
-qualified = False
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
@@ -21,9 +19,18 @@ server.listen(10)
 print("[Listening] Server is listening...")
 
 clients = []
+threads = []
 
 
-def handle(client: socket.socket):
+def handle(client: socket):
+    qualified = True
+    try:
+        con = mysql.connector.connect(host='192.168.0.250', port=3306,
+                                      user='root', password='123456Tt', database='presstransfer')
+        cur = con.cursor()
+        print("Connected to MySQL Server")
+    except:
+        print("mysql sunucusuna baglanamadi.")
     while (True):
         header_msg = client.recv(HEADER).decode(FORMAT)
         if header_msg:
@@ -51,22 +58,29 @@ def handle(client: socket.socket):
                     connected = False
                     qualified = False
                     client.send("not connected".encode(FORMAT))
-            elif msg[:6] == "create" and connected:
+            elif msg[:6] == "create":
+                part_name = msg[7:]
                 if qualified:
-                    part_name = msg[7:]
+                    # part_name = "eray"
+                    sql_str = "create table if not exists %s (deneme double);"
+                    try:
+                        cur.execute(sql_str.encode() %
+                                    (msg[7:], ))
+                        print("Parca olusturuldu.")
+                    except:
+                        print("error oldu yine")
                     client.send("qualified".encode(FORMAT))
-                    cur.execute(f'create table {part_name} (id int not null auto_increment, robot int not null, position int not null, x_axis double not null, y_axis double not null, z_axis double not null, a_axis double, b_axis double, c_axis double, p_axis double, q_axis double, unique (id), primary key (id))')
-                    client.send("done".encode(FORMAT))
+
                 else:
                     client.send('not qualified'.encode(FORMAT))
-            elif msg[:4] == "edit" and connected:  # ????????????????????????????????????
+            elif msg[:4] == "edit":  # ????????????????????????????????????
                 part_name = msg[5:]
                 position_len = client.recv(HEADER).decode(FORMAT)
                 if position_len:
                     position = client.recv(
                         int(position_len)).decode(FORMAT)
                     cur.execute(f'insert into {part_name} values({position})')
-            elif msg[:6] == "select" and connected:
+            elif msg[:6] == "select":
                 part_name = msg[7:]
                 try:
                     cur.execute(f'select max(robot) from {part_name}')
@@ -89,21 +103,23 @@ def handle(client: socket.socket):
                     client.send("endr".encode(FORMAT))
                 except:
                     client.send("err".encode(FORMAT))
-            elif msg[:6] == "delete" and connected:
-                try:
+            elif msg[:6] == "delete":
+                if qualified:
                     part_name = msg[7:]
+                    client.send("qualified".encode(FORMAT))
                     cur.execute(f'drop table {part_name}')
                     client.send('done'.encode(FORMAT))
-                except:
-                    client.send('err'.encode(FORMAT))
-            elif msg == "part_mames" and connected:
+                else:
+                    client.send('not qualified'.encode(FORMAT))
+            elif msg == "part_names":
                 try:
-                    cur.execute('show tables')
+                    cur.execute('show tables;')
                     parts = cur.fetchall()
                     parts_list = [part[0] for part in parts]
                     parts_str = ','.join(str(i) for i in parts_list)
                     client.send(f'{len(parts_str)}'.encode(FORMAT))
-                    client.send(f'{parts_str}'.encode(FORMAT))
+                    if client.recv(4).decode(FORMAT) == "done":
+                        client.send(f'{parts_str}'.encode(FORMAT))
                 except:
                     client.send('err'.encode(FORMAT))
             else:
@@ -115,4 +131,6 @@ while True:
     print(f'Connected with {str(address)}')
     clients.append(client)
     thread = threading.Thread(target=handle, args=(client,))
+    print("Aktif Baglanti sayisi: ", threading.active_count())
+    threads.append(thread)
     thread.start()
