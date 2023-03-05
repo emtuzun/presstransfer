@@ -24,14 +24,14 @@ threads = []
 
 def handle(client: socket):
     qualified = True
-    try:
-        con = mysql.connector.connect(host='192.168.0.250', port=3306,
-                                      user='root', password='123456Tt', database='presstransfer')
-        cur = con.cursor()
-        print("Connected to MySQL Server")
-    except:
-        print("mysql sunucusuna baglanamadi.")
     while (True):
+        try:
+            con = mysql.connector.connect(host='192.168.0.250', port=3306,
+                                        user='root', password='123456Tt', database='presstransfer')
+            cur = con.cursor()
+            print("Connected to MySQL Server")
+        except:
+            print("mysql sunucusuna baglanamadi.")
         header_msg = client.recv(HEADER).decode(FORMAT)
         if header_msg:
             msg_len = int(header_msg)
@@ -66,11 +66,12 @@ def handle(client: socket):
                     try:
                         cur.execute(sql_str.encode() %
                                     (msg[7:], ))
+                        cur.close()
+                        con.close()
                         print("Parca olusturuldu.")
                     except:
                         print("error oldu yine")
                     client.send("qualified".encode(FORMAT))
-
                 else:
                     client.send('not qualified'.encode(FORMAT))
             elif msg[:4] == "edit":  # ????????????????????????????????????
@@ -108,6 +109,8 @@ def handle(client: socket):
                     part_name = msg[7:]
                     client.send("qualified".encode(FORMAT))
                     cur.execute(f'drop table {part_name}')
+                    cur.close()
+                    con.close()
                     client.send('done'.encode(FORMAT))
                 else:
                     client.send('not qualified'.encode(FORMAT))
@@ -115,6 +118,8 @@ def handle(client: socket):
                 try:
                     cur.execute('show tables;')
                     parts = cur.fetchall()
+                    cur.close()
+                    con.close()
                     parts_list = [part[0] for part in parts]
                     parts_str = ','.join(str(i) for i in parts_list)
                     client.send(f'{len(parts_str)}'.encode(FORMAT))
