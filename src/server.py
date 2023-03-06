@@ -23,27 +23,21 @@ threads = []
 
 
 def handle(client: socket):
-    qualified = True
     while (True):
-        try:
-            con = mysql.connector.connect(host='192.168.0.250', port=3306,
-                                        user='root', password='123456Tt', database='presstransfer')
-            cur = con.cursor()
-            print("Connected to MySQL Server")
-        except:
-            print("mysql sunucusuna baglanamadi.")
         header_msg = client.recv(HEADER).decode(FORMAT)
         if header_msg:
             msg_len = int(header_msg)
-            msg = client.recv(msg_len).decode(FORMAT)
+            msg = client.recv(msg_len)
+            print(msg)
+            msg = msg.decode(FORMAT)
             if msg[:4] == "user":
                 user_name = msg[5:]
                 client.send("done".encode(FORMAT))
-                user_len_str = client.recv(HEADER).decode(FORMAT)
-                if user_len_str:
-                    user_len = int(user_len_str)
-                    msg = client.recv(user_len).decode(FORMAT)
-                    password = msg[9:]
+                password_len_str = client.recv(HEADER).decode(FORMAT)
+                if password_len_str:
+                    password_len = int(password_len_str)
+                    msg = client.recv(password_len).decode(FORMAT)
+                    password = msg
                 try:
                     con = mysql.connector.connect(host='192.168.0.250', port=3306,
                                                   user=f'{user_name}', password=f'{password}', database='presstransfer')
@@ -62,12 +56,11 @@ def handle(client: socket):
                 part_name = msg[7:]
                 if qualified:
                     # part_name = "eray"
-                    sql_str = "create table if not exists %s (deneme double);"
+                    sql_str = "create table %s (id int not null auto_increment, robot int not null, position int not null, x_axis double not null, y_axis double not null, z_axis double not null, a_axis double, b_axis double, c_axis double, p_axis double, q_axis double, unique (id), primary key (id));"
                     try:
-                        cur.execute(sql_str.encode() %
+                        cur.execute(sql_str %
                                     (msg[7:], ))
-                        cur.close()
-                        con.close()
+
                         print("Parca olusturuldu.")
                     except:
                         print("error oldu yine")
@@ -107,19 +100,15 @@ def handle(client: socket):
             elif msg[:6] == "delete":
                 if qualified:
                     part_name = msg[7:]
+                    print(part_name.encode())
                     client.send("qualified".encode(FORMAT))
                     cur.execute(f'drop table {part_name}')
-                    cur.close()
-                    con.close()
-                    client.send('done'.encode(FORMAT))
                 else:
                     client.send('not qualified'.encode(FORMAT))
             elif msg == "part_names":
                 try:
                     cur.execute('show tables;')
                     parts = cur.fetchall()
-                    cur.close()
-                    con.close()
                     parts_list = [part[0] for part in parts]
                     parts_str = ','.join(str(i) for i in parts_list)
                     client.send(f'{len(parts_str)}'.encode(FORMAT))
@@ -127,8 +116,15 @@ def handle(client: socket):
                         client.send(f'{parts_str}'.encode(FORMAT))
                 except:
                     client.send('err'.encode(FORMAT))
+                    print("sunucuya baglanamadi!")
+            elif msg == DISCONNECT_MESSAGE:
+                print("Client disconnected!")
+                break
             else:
                 client.send("err".encode(FORMAT))
+                break
+            msg = ''
+        header_msg = ''
 
 
 while True:
