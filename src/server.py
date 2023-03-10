@@ -8,7 +8,7 @@ import threading
 HEADER = 8
 HOST = "0.0.0.0"
 PORT = 12345
-FORMAT = "ascii"
+FORMAT = "iso8859_9"
 ADDR = (HOST, PORT)
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
@@ -25,6 +25,7 @@ threads = []
 def handle(client: socket):
     while (True):
         header_msg = client.recv(HEADER).decode(FORMAT)
+        print(header_msg)
         if header_msg:
             msg_len = int(header_msg)
             msg = client.recv(msg_len)
@@ -79,21 +80,28 @@ def handle(client: socket):
                 try:
                     cur.execute(f'select max(robot) from {part_name}')
                     max_robot = cur.fetchone()[0]
-                    client.send("done".encode(FORMAT))
                     for i in range(1, max_robot+1):
                         cur.execute(
                             f'select * from {part_name} where robot={i}')
                         robot_positions = cur.fetchall()
                         cur.execute(
-                            f'select max(postion) from {part_name} where robot={i}')
+                            f'select max(position) from {part_name} where robot={i}')
                         max_postion = cur.fetchone()[0]
+                        client.recv(4)
                         client.send(f'{i}'.encode(FORMAT))
-                        for j in range(0, max_postion):
-                            row = ','.join(str(k) for k in robot_positions[j])
-                            client.send("done".encode(FORMAT))
+                        for j in range(1, max_postion+1):
+                            row = ','.join(str(k)
+                                           for k in robot_positions[j-1])
+                            client.recv(4)
+                            client.send(f'{j}'.encode(FORMAT))
+                            client.recv(4)
                             client.send(f'{len(row)}'.encode(FORMAT))
+                            client.recv(4)
                             client.send(f'{row}'.encode(FORMAT))
+                            print(i, j)
+                        client.recv(4)
                         client.send("endp".encode(FORMAT))
+                    client.recv(4)
                     client.send("endr".encode(FORMAT))
                 except:
                     client.send("err".encode(FORMAT))
