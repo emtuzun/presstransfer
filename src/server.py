@@ -80,29 +80,24 @@ def handle(client: socket):
                 try:
                     cur.execute(f'select max(robot) from {part_name}')
                     max_robot = cur.fetchone()[0]
+                    coordinate = []
+                    robot = []
                     for i in range(1, max_robot+1):
-                        cur.execute(
-                            f'select * from {part_name} where robot={i}')
-                        robot_positions = cur.fetchall()
                         cur.execute(
                             f'select max(position) from {part_name} where robot={i}')
                         max_postion = cur.fetchone()[0]
-                        client.recv(4)
-                        client.send(f'{i}'.encode(FORMAT))
+                        position = []
                         for j in range(1, max_postion+1):
-                            row = ','.join(str(k)
-                                           for k in robot_positions[j-1])
-                            client.recv(4)
-                            client.send(f'{j}'.encode(FORMAT))
-                            client.recv(4)
-                            client.send(f'{len(row)}'.encode(FORMAT))
-                            client.recv(4)
-                            client.send(f'{row}'.encode(FORMAT))
-                            print(i, j)
-                        client.recv(4)
-                        client.send("endp".encode(FORMAT))
-                    client.recv(4)
-                    client.send("endr".encode(FORMAT))
+                            cur.execute(
+                                f'select * from {part_name} where robot={i} and position={j}')
+                            row = cur.fetchone()
+                            position.append(','.join(str(k) for k in row))
+                        robot.append(';'.join(str(k) for k in position))
+                    coordinate = ':'.join(str(k) for k in robot)
+                    len_cord = f'{len(coordinate)}'.encode("utf-8")
+                    len_cord = len_cord + (b' ' * (8 - len(len_cord)))
+                    client.send(len_cord)
+                    client.send(coordinate.encode(FORMAT))
                 except:
                     client.send("err".encode(FORMAT))
             elif msg[:6] == "delete":
