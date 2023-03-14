@@ -64,7 +64,8 @@ def handle(client: socket):
                     try:
                         cur.execute(sql_str %
                                     (msg[7:], ))
-
+                        cur.execute(
+                            f'insert into {part_name} (robot, position, x_axis, y_axis, z_axis, a_axis, b_axis, c_axis, p_axis, q_axis) values (1, 1, 0, 0, 0, 0, 0, 0, 0, 0)')
                         print("Parca olusturuldu.")
                     except:
                         print("error oldu yine")
@@ -115,7 +116,6 @@ def handle(client: socket):
             elif msg[:6] == "delete":
                 if qualified:
                     part_name = msg[7:]
-                    print(part_name.encode())
                     client.send("qualified".encode(FORMAT))
                     cur.execute(f'drop table {part_name}')
                 else:
