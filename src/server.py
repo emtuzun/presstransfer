@@ -22,6 +22,13 @@ clients = []
 threads = []
 
 
+def send(data: str, client: socket):
+    len_data = f'{len(data)}'.encode(FORMAT)
+    len_data = len_data + (b' ' * (8 - len(len_data)))
+    client.send(len_data)
+    client.send(data.encode(FORMAT))
+
+
 def handle(client: socket):
     while (True):
         header_msg = client.recv(HEADER).decode(FORMAT)
@@ -32,13 +39,9 @@ def handle(client: socket):
             print(msg)
             msg = msg.decode(FORMAT)
             if msg[:4] == "user":
-                user_name = msg[5:]
-                client.send("done".encode(FORMAT))
-                password_len_str = client.recv(HEADER).decode(FORMAT)
-                if password_len_str:
-                    password_len = int(password_len_str)
-                    msg = client.recv(password_len).decode(FORMAT)
-                    password = msg
+                userandpass = msg.split(" ")
+                user_name = userandpass[1]
+                password = userandpass[2]
                 try:
                     con = mysql.connector.connect(host='192.168.0.250', port=3306,
                                                   user=f'{user_name}', password=f'{password}', database='presstransfer')
@@ -80,7 +83,7 @@ def handle(client: socket):
                 try:
                     cur.execute(f'select max(robot) from {part_name}')
                     max_robot = cur.fetchone()[0]
-                    coordinate = []
+                    # coordinate = []
                     robot = []
                     for i in range(1, max_robot+1):
                         cur.execute(
@@ -94,10 +97,7 @@ def handle(client: socket):
                             position.append(','.join(str(k) for k in row))
                         robot.append(';'.join(str(k) for k in position))
                     coordinate = ':'.join(str(k) for k in robot)
-                    len_cord = f'{len(coordinate)}'.encode("utf-8")
-                    len_cord = len_cord + (b' ' * (8 - len(len_cord)))
-                    client.send(len_cord)
-                    client.send(coordinate.encode(FORMAT))
+                    send(coordinate, client)
                 except:
                     client.send("err".encode(FORMAT))
             elif msg[:6] == "delete":
@@ -114,11 +114,8 @@ def handle(client: socket):
                     parts = cur.fetchall()
                     parts_list = [part[0] for part in parts]
                     parts_str = ','.join(str(i) for i in parts_list)
-                    client.send(f'{len(parts_str)}'.encode(FORMAT))
-                    if client.recv(4).decode(FORMAT) == "done":
-                        client.send(f'{parts_str}'.encode(FORMAT))
+                    send(parts_str, client)
                 except:
-                    client.send('err'.encode(FORMAT))
                     print("sunucuya baglanamadi!")
             elif msg == DISCONNECT_MESSAGE:
                 print("Client disconnected!")
