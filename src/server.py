@@ -71,13 +71,25 @@ def handle(client: socket):
                     client.send("qualified".encode(FORMAT))
                 else:
                     client.send('not qualified'.encode(FORMAT))
-            elif msg[:4] == "edit":  # ????????????????????????????????????
-                part_name = msg[5:]
-                position_len = client.recv(HEADER).decode(FORMAT)
-                if position_len:
-                    position = client.recv(
-                        int(position_len)).decode(FORMAT)
-                    cur.execute(f'insert into {part_name} values({position})')
+            elif msg[:4] == "edit":
+                if qualified:
+                    edit_part_str = msg.split(' ')
+                    part_name = edit_part_str[1]
+                    position = edit_part_str[2]
+                    position = position.split(',')
+                    cur.execute(
+                        f'select * from {part_name} where robot={position[0]} and position={position[1]}')
+                    if cur.fetchone() == None:
+                        cur.execute(
+                            f'insert into {part_name} (robot, position, x_axis, y_axis, z_axis, a_axis, b_axis, c_axis, p_axis, q_axis) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)', position)
+                        con.commit()
+                    else:
+                        cur.execute(
+                            f'update {part_name} set x_axis = %s, y_axis = %s, z_axis = %s, a_axis = %s, b_axis = %s, c_axis = %s, p_axis = %s, q_axis = %s where (robot = {position[0]} and position = {position[1]})', position[2:])
+                        con.commit()
+                    client.send("qualified".encode(FORMAT))
+                else:
+                    client.send("not qualified".encode(FORMAT))
             elif msg[:6] == "select":
                 part_name = msg[7:]
                 try:
