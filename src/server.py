@@ -2,6 +2,7 @@
 # Server Kullanicinin kaydetmek istedigi parcanin konum bilgilerini SQL Database yeni bir tablo olusturup kaydetecek
 
 import mysql.connector
+import sqlite3
 import socket
 import threading
 
@@ -45,6 +46,7 @@ def handle(client: socket):
                 try:
                     con = mysql.connector.connect(host='192.168.0.250', port=3306,
                                                   user=f'{user_name}', password=f'{password}', database='presstransfer')
+                    # con = sqlite3.connect('parts.db')
                     cur = con.cursor()
                     connected = True
                     if connected and user_name == "root":
@@ -59,13 +61,13 @@ def handle(client: socket):
             elif msg[:6] == "create":
                 part_name = msg[7:]
                 if qualified:
-                    # part_name = "eray"
                     sql_str = "create table %s (id int not null auto_increment, robot int not null, position int not null, x_axis double not null, y_axis double not null, z_axis double not null, a_axis double, b_axis double, c_axis double, p_axis double, q_axis double, unique (id), primary key (id));"
                     try:
                         cur.execute(sql_str %
                                     (msg[7:], ))
                         cur.execute(
                             f'insert into {part_name} (robot, position, x_axis, y_axis, z_axis, a_axis, b_axis, c_axis, p_axis, q_axis) values (1, 1, 0, 0, 0, 0, 0, 0, 0, 0)')
+                        con.commit()
                         print("Parca olusturuldu.")
                     except:
                         print("error oldu yine")
@@ -96,14 +98,13 @@ def handle(client: socket):
                 try:
                     cur.execute(f'select max(robot) from {part_name}')
                     max_robot = cur.fetchone()[0]
-                    # coordinate = []
                     robot = []
                     for i in range(1, max_robot+1):
                         cur.execute(
-                            f'select max(position) from {part_name} where robot={i}')
-                        max_postion = cur.fetchone()[0]
+                            f'select max(position) from {part_name} where robot={i}')  # !!!!!!!!
+                        max_position = cur.fetchone()[0]
                         position = []
-                        for j in range(1, max_postion+1):
+                        for j in range(1, max_position+1):
                             cur.execute(
                                 f'select * from {part_name} where robot={i} and position={j}')
                             row = cur.fetchone()
@@ -113,16 +114,36 @@ def handle(client: socket):
                     send(coordinate, client)
                 except:
                     client.send("err".encode(FORMAT))
-            elif msg[:6] == "delete":
+            elif msg[:4] == "drop":
                 if qualified:
-                    part_name = msg[7:]
+                    part_name = msg[5:]
                     client.send("qualified".encode(FORMAT))
                     cur.execute(f'drop table {part_name}')
+                else:
+                    client.send('not qualified'.encode(FORMAT))
+            elif msg[:6] == "delete":
+                if qualified:
+                    message = msg[7:]
+                    info = message.split(' ')
+                    part_name = info[0]
+                    robot = info[1]
+                    try:
+                        position = info[2]
+                        cur.execute(
+                            f'delete from {part_name} where robot = {robot} and position = {position}')
+                        con.commit()
+                    except:
+                        print('hata mi oldu')
+                        cur.execute(
+                            f'delete from {part_name} where robot = {robot}')
+                        con.commit()
+                    client.send("qualified".encode(FORMAT))
                 else:
                     client.send('not qualified'.encode(FORMAT))
             elif msg == "part_names":
                 try:
                     cur.execute('show tables;')
+                    # cur.execute("select name from sqlite_master where type='table'")
                     parts = cur.fetchall()
                     parts_list = [part[0] for part in parts]
                     parts_str = ','.join(str(i) for i in parts_list)
