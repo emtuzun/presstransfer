@@ -112,6 +112,7 @@ def handle(client: socket):
                         robot.append(';'.join(str(k) for k in position))
                     coordinate = ':'.join(str(k) for k in robot)
                     send(coordinate, client)
+                    print("ha buraya kadar geliyor.")
                 except:
                     client.send("err".encode(FORMAT))
             elif msg[:4] == "drop":
